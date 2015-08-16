@@ -18,37 +18,25 @@ numIter = 500;
 % number of edgePts
 assert(size(edgePts, 1) > numIter * 2);
 
-lines = zeros(numIter, 3); % [p, theta, countInlier]
+% Randomly picked numIter pairs of points
+pickedInds = randperm(size(edgePts, 1), numIter * 2);
+pickedInds = reshape(pickedInds, numIter, 2);
+pt1s = edgePts(pickedInds(:, 1), :);
+pt2s = edgePts(pickedInds(:, 2), :);
 
-for i = 1 : numIter
-  i
-  % Randomly pick 2 points
-  % They can't be too close to each other
-  % (at least 1/10 of the height?)
-  while true
-    pickedInd = randperm(size(edgePts,1), 2);
-    pt1 = edgePts(pickedInd(1), :);
-    pt2 = edgePts(pickedInd(2), :);
-    if norm(pt1 - pt2) > (size(magMask, 1) / 10)
-      break;
-    end
-  end
-  
-  
-  theta = atan((pt1(1)-pt2(1)) / (pt2(2)-pt1(2)));
-  p = pt1(1) * cos(theta) + pt1(2) * sin(theta);
-  
-  countInlier = 0;
-  for j = 1 : size(edgePts, 1)
-    currPt = edgePts(j, :);
-    distEpsilon = 1;
-    y = p / sin(theta) - currPt(1) * cot(theta);
-    if abs(y - currPt(2)) < distEpsilon
-%       scatter(currPt(1), currPt(2), 200, 'g');
-      countInlier = countInlier + 1;
-    end
-    lines(i, :) = [p, theta, countInlier];
-  end 
+% Calculate all the candidate lines
+thetas = atan((pt1s(:, 1) - pt2s(:, 1)) ./ (pt2s(:, 2) - pt1s(:, 2)));
+radii = pt1s(:, 1) .* cos(thetas) + pt1s(:, 2) .* sin(thetas);
+
+% For every edgePt, see how many line it resides on
+distEpsilon = 1;
+lines = [radii, thetas, zeros(numIter, 1)];
+for i = 1 : size(edgePts, 1)
+  currPt = edgePts(i, :);
+  allY = radii ./ sin(thetas) - currPt(1) * cot(thetas);
+  allY = abs(allY - currPt(2));
+  isInlier = allY < distEpsilon;
+  lines(:, 3) = lines(:, 3) + isInlier;
 end
 
 % Sort the lines w.r.t. number of inliers
